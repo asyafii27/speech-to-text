@@ -1,6 +1,7 @@
 import os
 import shutil
 import sys
+import time
 from pathlib import Path
 
 import whisper
@@ -8,7 +9,10 @@ import whisper
 
 def _ensure_ffmpeg_in_path() -> None:
 	if shutil.which("ffmpeg"):
+		print("[OK] ffmpeg found in PATH", flush=True)
 		return
+
+	print("[..] ffmpeg not found, using imageio-ffmpeg...", flush=True)
 
 	try:
 		import imageio_ffmpeg
@@ -29,17 +33,28 @@ def _ensure_ffmpeg_in_path() -> None:
 		ffmpeg_exe = ffmpeg_alias
 
 	os.environ["PATH"] = str(ffmpeg_exe.parent) + os.pathsep + os.environ.get("PATH", "")
+	print(f"[OK] ffmpeg available at: {ffmpeg_exe}", flush=True)
 
 
 def main() -> None:
+	print("[..] Starting speech_to_text", flush=True)
+	print(f"[..] Python: {sys.executable}", flush=True)
 	_ensure_ffmpeg_in_path()
 
-	audio_path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("part A.mpeg")
+	audio_path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("audio/part A.mpeg")
 	if not audio_path.exists():
 		raise FileNotFoundError(f"File audio tidak ditemukan: {audio_path.resolve()}")
+	print(f"[..] Input audio: {audio_path}", flush=True)
 
+	start = time.perf_counter()
+	print("[..] Loading model: base", flush=True)
 	model = whisper.load_model("base")
+	print(f"[OK] Model loaded in {time.perf_counter() - start:.1f}s", flush=True)
+
+	start = time.perf_counter()
+	print("[..] Transcribing (this may take a while)...", flush=True)
 	result = model.transcribe(str(audio_path), fp16=False)
+	print(f"[OK] Transcription finished in {time.perf_counter() - start:.1f}s", flush=True)
 
 	text = result["text"].strip()
 	print(text)
@@ -48,7 +63,7 @@ def main() -> None:
 	output_dir.mkdir(parents=True, exist_ok=True)
 	output_path = output_dir / f"{audio_path.stem}.txt"
 	output_path.write_text(text + "\n", encoding="utf-8")
-	print(f"\nTersimpan: {output_path.resolve()}")
+	print(f"\n[OK] Saved: {output_path.resolve()}", flush=True)
 
 
 if __name__ == "__main__":
