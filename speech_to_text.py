@@ -7,10 +7,11 @@ from pathlib import Path
 import whisper
 
 
-PAUSE_SECONDS = 1.0  # insert a blank line if silence between segments >= this threshold
+PAUSE_MS = 500  # insert a blank line if silence between segments >= this threshold (milliseconds)
 
 
-def _format_text_with_pauses(segments: list[dict], pause_seconds: float = PAUSE_SECONDS) -> str:
+def _format_text_with_pauses(segments: list[dict], pause_ms: int = PAUSE_MS) -> str:
+	pause_seconds = pause_ms / 1000.0
 	lines: list[str] = []
 	current_parts: list[str] = []
 	prev_end: float | None = None
@@ -82,7 +83,7 @@ def main() -> None:
 	print(f"[..] Python: {sys.executable}", flush=True)
 	_ensure_ffmpeg_in_path()
 
-	audio_path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("audio/part A.mpeg")
+	audio_path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("audio/TOEFL Strategy for Listening Part A_ Negatives _ ruangprivat.mp3.mpeg")
 	if not audio_path.exists():
 		raise FileNotFoundError(f"File audio tidak ditemukan: {audio_path.resolve()}")
 	print(f"[..] Input audio: {audio_path}", flush=True)
