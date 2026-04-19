@@ -7,6 +7,47 @@ from pathlib import Path
 import whisper
 
 
+PAUSE_SECONDS = 1.0  # insert a blank line if silence between segments >= this threshold
+
+
+def _format_text_with_pauses(segments: list[dict], pause_seconds: float = PAUSE_SECONDS) -> str:
+	lines: list[str] = []
+	current_parts: list[str] = []
+	prev_end: float | None = None
+
+	for seg in segments:
+		start = float(seg.get("start", 0.0))
+		end = float(seg.get("end", 0.0))
+		seg_text = str(seg.get("text", "")).strip()
+		if not seg_text:
+			prev_end = end
+			continue
+
+		if prev_end is not None and (start - prev_end) >= pause_seconds:
+			if current_parts:
+				lines.append(" ".join(current_parts).strip())
+				current_parts = []
+			lines.append("")  # blank line for long pause
+
+		current_parts.append(seg_text)
+		prev_end = end
+
+	if current_parts:
+		lines.append(" ".join(current_parts).strip())
+
+	# Normalize consecutive blank lines
+	out_lines: list[str] = []
+	prev_blank = False
+	for line in lines:
+		blank = (line.strip() == "")
+		if blank and prev_blank:
+			continue
+		out_lines.append(line)
+		prev_blank = blank
+
+	return "\n".join(out_lines).strip() + "\n"
+
+
 def _ensure_ffmpeg_in_path() -> None:
 	if shutil.which("ffmpeg"):
 		print("[OK] ffmpeg found in PATH", flush=True)
@@ -56,13 +97,18 @@ def main() -> None:
 	result = model.transcribe(str(audio_path), fp16=False)
 	print(f"[OK] Transcription finished in {time.perf_counter() - start:.1f}s", flush=True)
 
-	text = result["text"].strip()
-	print(text)
+	segments = result.get("segments") or []
+	if segments:
+		text = _format_text_with_pauses(segments)
+	else:
+		text = (result.get("text") or "").strip() + "\n"
+
+	print(text.rstrip())
 
 	output_dir = Path("result")
 	output_dir.mkdir(parents=True, exist_ok=True)
 	output_path = output_dir / f"{audio_path.stem}.txt"
-	output_path.write_text(text + "\n", encoding="utf-8")
+	output_path.write_text(text, encoding="utf-8")
 	print(f"\n[OK] Saved: {output_path.resolve()}", flush=True)
 
 
