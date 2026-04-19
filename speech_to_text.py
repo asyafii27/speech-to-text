@@ -1,5 +1,6 @@
 import os
 import shutil
+import sys
 from pathlib import Path
 
 import whisper
@@ -33,14 +34,21 @@ def _ensure_ffmpeg_in_path() -> None:
 def main() -> None:
 	_ensure_ffmpeg_in_path()
 
-	audio_path = Path("part A.mpeg")
+	audio_path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("part A.mpeg")
 	if not audio_path.exists():
 		raise FileNotFoundError(f"File audio tidak ditemukan: {audio_path.resolve()}")
 
 	model = whisper.load_model("base")
 	result = model.transcribe(str(audio_path), fp16=False)
 
-	print(result["text"].strip())
+	text = result["text"].strip()
+	print(text)
+
+	output_dir = Path("result")
+	output_dir.mkdir(parents=True, exist_ok=True)
+	output_path = output_dir / f"{audio_path.stem}.txt"
+	output_path.write_text(text + "\n", encoding="utf-8")
+	print(f"\nTersimpan: {output_path.resolve()}")
 
 
 if __name__ == "__main__":
